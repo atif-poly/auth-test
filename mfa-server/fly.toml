@@ -1,0 +1,35 @@
+app = "mfa-server-atif"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # Set this to your registrable domain that matches iOS Associated Domains
+  MFA_RP_ID = "yourdomain.com"
+  # Persist state to a mounted volume
+  MFA_STORE_PATH = "/data/mfa-data.json"
+
+[[mounts]]
+  source = "data"
+  destination = "/data"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+

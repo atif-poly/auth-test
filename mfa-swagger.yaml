@@ -1,0 +1,334 @@
+openapi: 3.0.3
+info:
+  title: MFA Passkey API
+  description: Multi-Factor Authentication API for WebAuthn/Passkey management
+  version: 1.0.0
+  contact:
+    name: Backend Team
+    email: backend@company.com
+
+servers:
+  - url: https://api.company.com
+    description: Production server
+  - url: https://staging-api.company.com
+    description: Staging server
+
+paths:
+  /v1/mfa/passkey/challenge:
+    get:
+      summary: Get authentication challenge
+      description: Generate a cryptographic challenge for WebAuthn operations
+      operationId: getPasskeyChallenge
+      tags:
+        - Passkey
+      responses:
+        '200':
+          description: Challenge generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/mfa/passkey/register:
+    post:
+      summary: Register a new passkey
+      description: Register a WebAuthn credential for a user
+      operationId: registerPasskey
+      tags:
+        - Passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPasskeyRequest'
+      responses:
+        '200':
+          description: Passkey registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MFAMethodResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/mfa/passkey/authenticate:
+    post:
+      summary: Authenticate with passkey
+      description: Verify a WebAuthn credential for authentication
+      operationId: authenticatePasskey
+      tags:
+        - Passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthenticatePasskeyRequest'
+      responses:
+        '200':
+          description: Authentication result (success or failure)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MFAMethodResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/mfa/status/{userID}:
+    get:
+      summary: Get MFA status for user
+      description: Retrieve the MFA setup and enablement status for a specific user
+      operationId: getMFAStatus
+      tags:
+        - Status
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          description: Unique identifier for the user
+          schema:
+            type: string
+            example: "0b6aff21-ceee-4d88-add5-6be70c27a8cd"
+      responses:
+        '200':
+          description: MFA status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MFAMethodResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/mfa/disable/{type}:
+    delete:
+      summary: Disable MFA method
+      description: Disable and remove all credentials for a specific MFA method type
+      operationId: disableMFA
+      tags:
+        - Management
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: MFA method type to disable
+          schema:
+            type: string
+            enum: [PASSKEY]
+            example: "PASSKEY"
+        - name: userID
+          in: query
+          required: true
+          description: Unique identifier for the user
+          schema:
+            type: string
+            example: "0b6aff21-ceee-4d88-add5-6be70c27a8cd"
+      responses:
+        '204':
+          description: MFA method disabled successfully
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: MFA method type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ChallengeResponse:
+      type: object
+      required:
+        - challenge
+        - expiresAt
+      properties:
+        challenge:
+          type: string
+          description: Base64-encoded cryptographic challenge
+          example: "9StHNAA7Q/ZYQb4X0PB6IyOWMwDUYfZRWXA4DwPP2fw="
+        expiresAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the challenge expires
+          example: "2025-08-20T18:05:07.891590352Z"
+
+    RegisterPasskeyRequest:
+      type: object
+      required:
+        - userId
+        - credentialId
+        - publicKey
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the user
+          example: "0b6aff21-ceee-4d88-add5-6be70c27a8cd"
+        credentialId:
+          type: string
+          description: WebAuthn credential identifier
+          example: "cred-123"
+        publicKey:
+          type: string
+          description: Base64-encoded public key
+          example: "pk-abc"
+        attestationObject:
+          type: string
+          nullable: true
+          description: Optional WebAuthn attestation object
+          example: "attestation-data"
+        authenticatorData:
+          type: string
+          nullable: true
+          description: Optional WebAuthn authenticator data
+          example: "auth-data"
+
+    AuthenticatePasskeyRequest:
+      type: object
+      required:
+        - credentialId
+        - authenticatorData
+        - signature
+        - challenge
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the user (preferred)
+          example: "0b6aff21-ceee-4d88-add5-6be70c27a8cd"
+        userHandle:
+          type: string
+          description: WebAuthn user handle (fallback if userId not provided)
+          example: "user-handle"
+        credentialId:
+          type: string
+          description: WebAuthn credential identifier
+          example: "cred-123"
+        authenticatorData:
+          type: string
+          description: Base64-encoded authenticator data
+          example: "auth-data"
+        signature:
+          type: string
+          description: Base64-encoded signature
+          example: "signature-data"
+        challenge:
+          type: string
+          description: Base64-encoded challenge that was signed
+          example: "Q0hBTExFTkdFX0JBU0U2NA=="
+
+    MFAMethodResponse:
+      type: object
+      required:
+        - type
+        - isEnabled
+        - isSetup
+      properties:
+        type:
+          type: string
+          description: MFA method type
+          enum: [PASSKEY]
+          example: "PASSKEY"
+        isEnabled:
+          type: boolean
+          description: Whether the MFA method is enabled for the user
+          example: true
+        isSetup:
+          type: boolean
+          description: Whether the MFA method has been set up by the user
+          example: true
+        setupTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp when the method was first set up
+          example: "2025-08-20T18:03:53.935709338Z"
+        lastUsedTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp when the method was last used
+          example: "2025-08-20T18:04:15.212704848Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request data"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_REQUEST"
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Optional bearer token for authentication (not required by current implementation)
+
+tags:
+  - name: Passkey
+    description: WebAuthn/Passkey credential management
+  - name: Status
+    description: MFA status and configuration retrieval
+  - name: Management
+    description: MFA method administration
+
+externalDocs:
+  description: WebAuthn Specification
+  url: https://www.w3.org/TR/webauthn/
